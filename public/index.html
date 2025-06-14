@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SMS Rental - Login or Register</title>
+</head>
+<body>
+  <h2>Welcome to SMS Rental</h2>
+
+  <div id="forms">
+    <div id="registerForm">
+      <h3>Register</h3>
+      <input type="text" id="regName" placeholder="Name"><br>
+      <input type="email" id="regEmail" placeholder="Email"><br>
+      <input type="text" id="regPhone" placeholder="Phone"><br>
+      <input type="text" id="regImageUrl" placeholder="Image URL (optional)"><br>
+      <input type="password" id="regPassword" placeholder="Password"><br>
+      <button onclick="register()">Register</button>
+    </div>
+
+    <hr>
+
+    <div id="loginForm">
+      <h3>Login</h3>
+      <input type="email" id="loginEmail" placeholder="Email"><br>
+      <input type="password" id="loginPassword" placeholder="Password"><br>
+      <button onclick="login()">Login</button>
+    </div>
+  </div>
+
+  <script>
+    async function register() {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('regName').value,
+          email: document.getElementById('regEmail').value,
+          phone: document.getElementById('regPhone').value,
+          image_url: document.getElementById('regImageUrl').value,
+          password: document.getElementById('regPassword').value,
+        })
+      });
+
+      const data = await res.json();
+      alert(data.message);
+    }
+
+    async function login() {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('loginEmail').value,
+          password: document.getElementById('loginPassword').value,
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        localStorage.setItem('userId', data.userId);
+        window.location.href = 'dashboard.html';
+      } else {
+        alert(data.message || 'Login failed');
+      }
+    }
+  </script>
+</body>
+</html>
+

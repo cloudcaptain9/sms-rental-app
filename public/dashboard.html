@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+</head>
+<body>
+  <h2>Welcome, <span id="userName"></span></h2>
+  <p>Email: <span id="userEmail"></span></p>
+  <p>Phone: <span id="userPhone"></span></p>
+  <p>Balance: <strong id="userBalance"></strong> credits</p>
+  <hr>
+
+  <h2>SMS Dashboard</h2>
+
+  <select id="platform">
+    <option value="Facebook">Facebook</option>
+    <option value="Telegram">Telegram</option>
+    <option value="WhatsApp">WhatsApp</option>
+  </select>
+  <button onclick="rentNumber()">Rent Number</button>
+
+  <h3>Active Rentals</h3>
+  <div id="rentals"></div>
+
+  <script>
+    const userId = localStorage.getItem('userId');
+    if (!userId) window.location = 'login.html';
+
+    async function fetchUserInfo() {
+      try {
+        const res = await fetch(`/api/auth/user/${userId}`);
+        const user = await res.json();
+
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userEmail').textContent = user.email;
+        document.getElementById('userPhone').textContent = user.phone;
+        document.getElementById('userBalance').textContent = user.balance;
+      } catch (err) {
+        console.error('Error fetching user info', err);
+      }
+    }
+
+    async function rentNumber() {
+      const platform = document.getElementById('platform').value;
+      const res = await fetch('/api/rent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, platform })
+      });
+
+      const data = await res.json();
+      alert(data.message || 'Rented!');
+      await fetchUserInfo(); // refresh balance
+      loadRentals();
+    }
+
+    async function loadRentals() {
+      const res = await fetch('/api/rent/active/' + userId);
+      const rentals = await res.json();
+
+      document.getElementById('rentals').innerHTML = rentals.map(r => `
+        <div>
+          <b>${r.platform}</b> - ${r.twilioNumber}<br />
+          Expires: ${new Date(r.expiresAt).toLocaleTimeString()}<br />
+          ${r.messages.map(m => `<div>📩 ${m.body}</div>`).join('')}
+          <hr/>
+        </div>
+      `).join('');
+    }
+
+    // Load everything on page load
+    fetchUserInfo();
+    loadRentals();
+  </script>
+</body>
+</html>
+
