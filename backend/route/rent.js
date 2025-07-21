@@ -1,71 +1,48 @@
+// backend/route/rent.js
 const express = require('express');
 const router = express.Router();
-const Rental = require('../models/rental');
-const User = require('../models/user');
-const twilio = require('twilio');
+const axios = require('axios');
 
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const BACKEND_URL = 'http://localhost:3000';
 
-// POST /api/rent — rent a number
-router.post('/', async (req, res) => {
-  const { userId, platform, region } = req.body;
-
+router.get('/services', async (req, res) => {
   try {
-    const user = await User.findById(userId);
-    if (!user || user.balance <= 0) {
-      return res.status(400).json({ message: 'Insufficient balance' });
-    }
+    const response = await axios.get(`${BACKEND_URL}/api/verification/services`);
+    const raw = response.data;
 
-    // Get a number from Twilio
-    const available = await client.availablePhoneNumbers(region || 'US')
-      .local
-      .list({ smsEnabled: true, limit: 1 });
+    // Transform and markup price
+    const services = raw.services.map(service => ({
+      name: service.name,
+      code: service.code
+    }));
 
-    if (!available.length) {
-      return res.status(500).json({ message: 'No numbers available' });
-    }
+    const countries = raw.countries.map(country => ({
+      name: country.name,
+      code: country.code
+    }));
 
-    const number = await client.incomingPhoneNumbers.create({
-      phoneNumber: available[0].phoneNumber,
-      smsUrl: `${process.env.BASE_URL}/api/webhook/twilio`
-    });
-
-    const price = 1; // You can expand this with platform-specific pricing
-
-    const rental = new Rental({
-      twilioNumber: number.phoneNumber,
-      user: user._id,
-      messages: [],
-      codeReceived: false,
-      price,
-      platform,
-      createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 20 * 60 * 1000) // 20 mins
-    });
-
-    await rental.save();
-
-    res.json({ message: 'Number rented successfully', number: number.phoneNumber });
+    res.json({ services, countries });
   } catch (err) {
-    console.error('❌ Rent error:', err);
-    res.status(500).json({ message: 'Error renting number' });
+    console.error('🔴 Failed to load services and countries:', err.message);
+    res.status(500).json({ error: 'Failed to load services and countries' });
   }
 });
 
-// ✅ GET /api/rent/active/:userId — fetch all active (not expired) rentals
-router.get('/active/:userId', async (req, res) => {
-  const { userId } = req.params;
-
+router.get('/price', async (req, res) => {
+  const { service, country } = req.query;
   try {
-    const rentals = await Rental.find({
-      user: userId,
-      expiresAt: { $gt: new Date() } // still active
-    });
+    const response = await axios.get(`${BACKEND_URL}/api/verification/services`);
+    const { services } = response.data;
 
-    res.json(rentals);
+    const found = services.find(s => s.code === service && s.country === country);
+    if (!found) return res.status(404).json({ error: 'Service not found' });
+
+    // Add 50% markup
+    const price = Math.ceil(found.price * 1.5);
+    res.json({ price });
   } catch (err) {
-    console.error('❌ Fetch active rentals error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('🔴 Failed to get price:', err.message);
+    res.status(500).json({ error: 'Failed to fetch price' });
   }
 });
 

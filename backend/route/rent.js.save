@@ -1,0 +1,116 @@
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const router = express.Router();
+const Rental = require('../models/rental');
+const User = require('../models/user');
+
+const API_KEY = process.env.FIVESIM_API_KEY;
+// Helper function to define platform prices
+function getPlatformPrice(service) {
+  const prices = {
+    facebook: 2,
+    telegram: 1,
+    whatsapp: 1.5,
+    tiktok: 1.2
+  };
+  return prices[service.toLowerCase()] || 1; // default price if unknown
+}
+
+// Rent a number
+router.post('/start', async (req, res) => {
+  const { userId, service, country } = req.body;
+
+  try {
+    // Get user and validate balance
+    const user = await User.findById(userId);
+    if (!user || user.balance <= 0) {
+      return res.status(400).json({ error: 'Insufficient balance or user not found' });
+    }
+
+    // Fetch number from 5sim
+    const url = `https://5sim.net/v1/user/buy/activation/${country}/any/${service}`;
+    const response = await axios.get(url, {
+      headers: { Authorization: API_KEY },
+    });
+
+    const rented = response.data;
+
+    if (!rented) {
+      return res.status(500).json({ error: 'No numbers available from 5sim' });
+    }
+
+    // Save rental to DB
+    const rental = new Rental({
+      userId,
+      service,
+      number: rented.phone,
+      rentalId: rented.id,
+      price: rented.price,
+      country,
+      status: 'pending',
+    });
+
+    await rental.save();
+
+    // Schedule auto-expiry after 20 minutes
+    setTimeout(async () => {
+      const current = await Rental.findById(rental._id);
+      if (current && current.status === 'pending') {
+        await axios.post(`https://5sim.net/v1/user/cancel/${rented.id}`, {}, {
+          headers: { Authorization: API_KEY }
+        });
+        current.status = 'expired';
+        await current.save();
+      }
+    }, 20 * 60 * 1000);
+
+    res.json({ number: rented.phone, rentalId: rented.id, dbId: rental._id });
+
+  } catch (err) {
+    console.error('Error renting number:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Failed to rent number' });
+  }
+});
+
+// Poll SMS code
+router.get('/status/:id', async (req, res) => {
+  const rentalId = req.params.id;
+
+  try {
+    const rental = await Rental.findOne({ rentalId });
+    if (!rental) return res.status(404).json({ error: 'Rental not found' });
+    if (rental.status === 'completed') return res.json({ code: rental.smsCode });
+
+    // Fetch from 5sim
+    const response = await axios.get(`https://5sim.net/v1/user/check/${rentalId}`, {
+      headers: { Authorization: API_KEY }
+    });
+
+    const smsList = response.data.sms;
+    if (smsList.length > 0) {
+      rental.smsCode = smsList[0].code || smsList[0].text;
+      rental.status = 'completed';
+      await rental.save();
+
+// Deduct user balance based on platform price
+const user = await User.findById(rental.userId);
+if (user) {
+  const platformPrice = getPlatformPrice(rental.service);
+  user.balance -= platformPrice;
+  await user.save();
+}
+      }
+
+      return res.json({ code: rental.smsCode });
+    } else {
+      return res.json({ message: 'Waiting for SMS' });
+    }
+  } catch (err) {
+    console.error('Error polling SMS:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Failed to poll SMS' });
+  }
+});
+
+module.exports = router;
+

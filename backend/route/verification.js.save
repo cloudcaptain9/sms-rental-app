@@ -1,0 +1,100 @@
+// routes/verification.js
+const express = require('express');
+const router = express.Router();
+const axios = require('axios');
+
+const BASE_URL = 'https://api.textverified.com/api/pub/v2';
+const API_KEY = process.env.TEXTVERIFIED_API_KEY;
+const EMAIL = process.env.TEXTVERIFIED_EMAIL;
+
+// Simple in-memory cache for bearer token
+let tokenCache = null;
+let tokenExpiresAt = null;
+
+// Generate or reuse cached bearer token
+const generateBearerToken = async () => {
+  const isExpired = () => {
+    return !tokenCache || !tokenExpiresAt || new Date() >= new Date(tokenExpiresAt);
+  };
+
+  if (!isExpired()) return tokenCache;
+
+  const response = await axios.post(`${BASE_URL}/api/pub/v2`, {}, {
+    headers: {
+      'X-API-KEY': API_KEY,
+      'X-API-USERNAME': EMAIL
+    }
+  });
+
+  tokenCache = response.data.token;
+  tokenExpiresAt = response.data.expiresAt;
+  return tokenCache;
+};
+
+// ✅ 1. Get list of available services
+router.get('/services', async (req, res) => {
+  try {
+    const token = await generateBearerToken();
+    const params = {
+      numberType: 'mobile',
+      reservationType: 'verification'
+    };
+    const response = await axios.get(`${BASE_URL}/api/pub/v2/services`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      params
+    });
+
+    res.json(response.data);
+} catch (err) {
+  console.error('🔴 Service List Error:', err.message);
+  console.error('🔴 Full Error:', err.response?.data || err);
+  res.status(500).json({ error: 'Failed to fetch services' });
+}
+});
+
+// ✅ 2. Create a new verification
+router.post('/create', async (req, res) => {
+  const { serviceName, capability } = req.body;
+
+  try {
+    const token = await generateBearerToken();
+    const response = await axios.post(`${BASE_URL}/api/pub/v2/verifications`, {
+      serviceName,
+      capability
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    res.json({ href: response.data.href });
+  } catch (err) {
+    console.error('Create Verification Error:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Failed to create verification' });
+  }
+});
+
+// ✅ 3. Poll for verification result
+router.get('/status', async (req, res) => {
+  const { href } = req.query;
+
+  try {
+    const token = await generateBearerToken();
+    const response = await axios.get(href, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    res.json(response.data);
+  } catch (err) {
+    console.error('Get Verification Status Error:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Failed to get verification status' });
+  }
+});
+
+module.exports = router;
+

@@ -1,70 +1,85 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>SMS Rental - Login or Register</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SMS Rental - Rent Temporary Numbers</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h2>Welcome to SMS Rental</h2>
+<body class="bg-gray-50 text-gray-800">
 
-  <div id="forms">
-    <div id="registerForm">
-      <h3>Register</h3>
-      <input type="text" id="regName" placeholder="Name"><br>
-      <input type="email" id="regEmail" placeholder="Email"><br>
-      <input type="text" id="regPhone" placeholder="Phone"><br>
-      <input type="text" id="regImageUrl" placeholder="Image URL (optional)"><br>
-      <input type="password" id="regPassword" placeholder="Password"><br>
-      <button onclick="register()">Register</button>
+  <!-- Navbar -->
+  <header class="bg-white shadow-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+      <h1 class="text-xl font-bold text-blue-600">📱 SMS Rental</h1>
+      <nav class="space-x-4">
+        <a href="/login.html" class="text-gray-700 hover:text-blue-600">Login</a>
+        <a href="/register.html" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Register</a>
+      </nav>
     </div>
+  </header>
 
-    <hr>
-
-    <div id="loginForm">
-      <h3>Login</h3>
-      <input type="email" id="loginEmail" placeholder="Email"><br>
-      <input type="password" id="loginPassword" placeholder="Password"><br>
-      <button onclick="login()">Login</button>
+  <!-- Hero Section -->
+  <section class="bg-white py-20">
+    <div class="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-10 items-center">
+      <div>
+        <h2 class="text-4xl font-bold mb-4 text-blue-700">Get Verification Codes Without Using Your Real Number</h2>
+        <p class="text-gray-600 text-lg mb-6">Rent a number instantly for Facebook, WhatsApp, Telegram, TikTok, and more. Safe, fast, and private.</p>
+        <a href="/register.html" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-700">Start Renting Now</a>
+      </div>
+      <div class="hidden md:block">
+        <img src="https://img.icons8.com/clouds/500/sms.png" alt="SMS Icon" class="w-full max-w-sm mx-auto" />
+      </div>
     </div>
-  </div>
+  </section>
 
-  <script>
-    async function register() {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: document.getElementById('regName').value,
-          email: document.getElementById('regEmail').value,
-          phone: document.getElementById('regPhone').value,
-          image_url: document.getElementById('regImageUrl').value,
-          password: document.getElementById('regPassword').value,
-        })
-      });
+  <!-- Features Section -->
+  <section class="py-16 bg-blue-50">
+    <div class="max-w-6xl mx-auto px-4 grid md:grid-cols-3 gap-10 text-center">
+      <div>
+        <div class="text-4xl text-blue-600 mb-4">📲</div>
+        <h3 class="text-xl font-bold mb-2">Supports All Major Platforms</h3>
+        <p class="text-gray-700">Facebook, WhatsApp, Telegram, TikTok, and more. Get verified with ease.</p>
+      </div>
+      <div>
+        <div class="text-4xl text-blue-600 mb-4">⏱️</div>
+        <h3 class="text-xl font-bold mb-2">Auto-Expires After 20 Minutes</h3>
+        <p class="text-gray-700">No need to cancel. Unused numbers expire safely.</p>
+      </div>
+      <div>
+        <div class="text-4xl text-blue-600 mb-4">💰</div>
+        <h3 class="text-xl font-bold mb-2">Only Pay When You Receive SMS</h3>
+        <p class="text-gray-700">Fair usage pricing. No SMS, no cost deducted.</p>
+      </div>
+    </div>
+  </section>
 
-      const data = await res.json();
-      alert(data.message);
-    }
+  <!-- How It Works -->
+  <section class="py-20 bg-white">
+    <div class="max-w-4xl mx-auto px-4 text-center">
+      <h2 class="text-3xl font-bold mb-6 text-blue-700">How It Works</h2>
+      <div class="grid md:grid-cols-3 gap-10 text-left mt-10">
+        <div>
+          <h4 class="font-semibold text-lg mb-2">1. Register & Login</h4>
+          <p class="text-gray-600">Create an account and top up using crypto or voucher.</p>
+        </div>
+        <div>
+          <h4 class="font-semibold text-lg mb-2">2. Choose Service & Country</h4>
+          <p class="text-gray-600">Pick a platform like Facebook or WhatsApp and select a country.</p>
+        </div>
+        <div>
+          <h4 class="font-semibold text-lg mb-2">3. Receive SMS Instantly</h4>
+          <p class="text-gray-600">Wait for the code and use it for verification. That’s it!</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    async function login() {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: document.getElementById('loginEmail').value,
-          password: document.getElementById('loginPassword').value,
-        })
-      });
+  <!-- Footer -->
+  <footer class="bg-gray-100 border-t mt-12 text-center py-6 text-sm text-gray-600">
+    &copy; 2025 SMS Rental. Powered by 5sim.net. | <a href="/privacy.html" class="text-blue-600">Privacy</a>
+  </footer>
 
-      const data = await res.json();
-
-      if (res.ok) {
-        localStorage.setItem('userId', data.userId);
-        window.location.href = 'dashboard.html';
-      } else {
-        alert(data.message || 'Login failed');
-      }
-    }
-  </script>
 </body>
 </html>
 

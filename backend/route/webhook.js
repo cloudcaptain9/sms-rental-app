@@ -1,51 +1,47 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const Rental = require('../models/rental');
-const User = require('../models/user');
+const { ObjectId } = require("mongodb");
+const connectDB = require("../db");
 
-// Twilio sends form data, not JSON
-router.post('/twilio', async (req, res) => {
-  const { From, To, Body } = req.body;
-
-  console.log('📩 Incoming SMS:', { From, To, Body });
+router.post("/webhook", async (req, res) => {
+  const db = await connectDB();
+  const users = db.collection("users");
+  const rentals = db.collection("rented_numbers");
 
   try {
-    // 1. Find rental record by Twilio number
-    const rental = await Rental.findOne({ twilioNumber: To });
+    const { otp_id, messages } = req.body;
+    const latestMessage = messages?.[messages.length - 1]?.content;
 
-    if (!rental) {
-      console.log('❌ No rental found for number:', To);
-      return res.status(404).send('<Response></Response>');
+    if (!otp_id || !latestMessage) {
+      return res.status(400).json({ error: "Invalid webhook payload" });
     }
 
-    // 2. Reject if expired
-    if (rental.expiresAt && rental.expiresAt < new Date()) {
-      console.log('⏱️ Rental expired for number:', To);
-      return res.status(403).send('<Response></Response>');
+    const rental = await rentals.findOne({ otp_id });
+    if (!rental || rental.status === "received") {
+      return res.status(404).json({ error: "Rental not found or already completed" });
     }
 
-    // 3. Add incoming message
-    rental.messages.push({ from: From, body: Body });
+    const user = await users.findOne({ _id: new ObjectId(rental.user_id) });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    // 4. Deduct balance only once
-    if (!rental.codeReceived) {
-      const user = await User.findById(rental.userId);
-      if (user) {
-        user.balance -= rental.price;
-        await user.save();
-      }
+    const cost = rental.price;
+    const newBalance = user.balance - cost;
+    if (newBalance < 0) return res.status(400).json({ error: "Insufficient balance" });
 
-      rental.codeReceived = true;
-    }
+    await rentals.updateOne(
+      { _id: rental._id },
+      { $set: { status: "received", code: latestMessage, received_at: new Date() } }
+    );
 
-    await rental.save();
+    await users.updateOne(
+      { _id: user._id },
+      { $set: { balance: newBalance } }
+    );
 
-    res.set('Content-Type', 'text/xml');
-    res.send('<Response></Response>');
+    res.status(200).json({ message: "Code saved and balance deducted" });
   } catch (err) {
-    console.error('❌ Webhook error:', err);
-    res.set('Content-Type', 'text/xml');
-    res.status(500).send('<Response></Response>');
+    console.error("Webhook error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

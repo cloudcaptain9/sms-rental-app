@@ -21,46 +21,84 @@
   <hr>
 
   <h3>All Users</h3>
+<button onclick="logout()">Logout Admin</button>
   <ul id="userList"></ul>
 
-  <script>
-    async function fetchUsers() {
-      const res = await fetch('/api/admin/users');
-      const users = await res.json();
+<script>
+function logout() {
+  localStorage.removeItem('adminPassword');
+  location.reload();
+}
+  // Prompt admin password once and reuse it
+  let adminPassword = localStorage.getItem('adminPassword');
 
-      const list = document.getElementById('userList');
-      list.innerHTML = '';
-      users.forEach(user => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <strong>${user.name}</strong> (${user.email})<br>
-          ID: <code>${user._id}</code><br>
-          Balance: ${user.balance} credits
-          <hr>
-        `;
-        list.appendChild(li);
-      });
+  if (!adminPassword) {
+    adminPassword = prompt("Enter Admin Password:");
+    if (adminPassword) {
+      localStorage.setItem('adminPassword', adminPassword);
+    } else {
+      alert("Access denied");
+      window.location.href = "login.html";
     }
+  }
 
-    document.getElementById('topupForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const userId = document.getElementById('userId').value;
-      const amount = document.getElementById('amount').value;
-
-      const res = await fetch('/api/admin/topup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, amount })
-      });
-
-      const data = await res.json();
-      document.getElementById('result').textContent = data.message || 'Done';
-
-      fetchUsers(); // reload list
+  async function fetchUsers() {
+    const res = await fetch('/api/admin/users', {
+      headers: { 'x-admin-password': adminPassword }
     });
 
-    fetchUsers();
-  </script>
+    if (res.status === 401) {
+      alert("Unauthorized. Wrong admin password.");
+      localStorage.removeItem('adminPassword');
+      window.location.reload();
+      return;
+    }
+
+    const users = await res.json();
+    const list = document.getElementById('userList');
+    list.innerHTML = '';
+    users.forEach(user => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <strong>${user.name}</strong> (${user.email})<br>
+        ID: <code>${user._id}</code><br>
+        Balance: ${user.balance} credits
+        <hr>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  document.getElementById('topupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const userId = document.getElementById('userId').value;
+    const amount = document.getElementById('amount').value;
+
+    const res = await fetch('/api/admin/topup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-password': adminPassword
+      },
+      body: JSON.stringify({ userId, amount })
+    });
+
+    if (res.status === 401) {
+      alert("Unauthorized. Wrong admin password.");
+      localStorage.removeItem('adminPassword');
+      window.location.reload();
+      return;
+    }
+
+    const data = await res.json();
+    document.getElementById('result').textContent = data.message || 'Done';
+
+    fetchUsers(); // reload list
+  });
+
+  fetchUsers();
+</script>
+
 </body>
 </html>
 

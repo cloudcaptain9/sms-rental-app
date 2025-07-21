@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login - SMS Rental</title>
+  <title>Register - SMS Rental</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -17,65 +17,47 @@
     }
 
     .container {
+      width: 100%;
+      max-width: 420px;
       background-color: #fff;
       padding: 30px 25px;
       border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 400px;
       box-sizing: border-box;
       margin: 20px;
     }
 
     h2 {
       text-align: center;
+      margin-bottom: 25px;
       color: #007bff;
-      margin-bottom: 20px;
     }
 
-    input {
+    input, button {
       width: 100%;
       padding: 12px;
       margin-top: 10px;
       border-radius: 5px;
       border: 1px solid #ccc;
+      font-size: 16px;
       box-sizing: border-box;
     }
 
-    .password-toggle {
-      display: flex;
-      align-items: center;
-      margin-top: 10px;
+    input[type="checkbox"] {
+      width: auto;
+      margin-right: 10px;
     }
 
-    .password-toggle input {
-      flex: 1;
-    }
-
-    .password-toggle button {
-      margin-left: 10px;
-      padding: 10px 12px;
-      cursor: pointer;
-      border: none;
-      background: #007bff;
-      color: white;
-      border-radius: 5px;
-      font-size: 14px;
-    }
-
-    button[type="submit"] {
-      width: 100%;
-      padding: 12px;
+    button {
       background-color: #007bff;
       color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
       font-weight: bold;
-      margin-top: 20px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s;
     }
 
-    button[type="submit"]:hover {
+    button:hover {
       background-color: #0056b3;
     }
 
@@ -94,27 +76,38 @@
       text-decoration: underline;
     }
 
+    .terms {
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      margin-top: 10px;
+      color: #555;
+    }
+
     .message {
       text-align: center;
       margin-top: 10px;
       font-size: 14px;
     }
 
-    .error {
-      color: red;
-    }
     .success {
       color: green;
+    }
+
+    .error {
+      color: red;
     }
 
     @media (max-width: 480px) {
       .container {
         padding: 20px;
       }
+
       h2 {
         font-size: 22px;
       }
-      button[type="submit"], .password-toggle button {
+
+      input, button {
         font-size: 15px;
       }
     }
@@ -123,70 +116,68 @@
 <body>
 
   <div class="container">
-    <h2>Login</h2>
-    <form onsubmit="loginUser(event)">
+    <h2>Register</h2>
+    <form onsubmit="registerUser(event)">
+      <input type="text" id="name" placeholder="Full Name" required />
       <input type="email" id="email" placeholder="Email" required />
+      <input type="text" id="phone" placeholder="Phone Number" required />
+      <input type="url" id="image_url" placeholder="Image URL (optional)" />
+      <input type="password" id="password" placeholder="Password" required />
 
-      <div class="password-toggle">
-        <input type="password" id="password" placeholder="Password" required />
-        <button type="button" onclick="togglePassword()">Show</button>
-      </div>
+      <label class="terms">
+        <input type="checkbox" id="agree" required />
+        I agree to the <a href="#">Terms & Conditions</a>
+      </label>
 
-      <button type="submit">Login</button>
+      <button type="submit">Register</button>
       <div id="message" class="message"></div>
     </form>
 
     <div class="link">
-      Don't have an account? <a href="registration.html">Register</a>
+      Already have an account? <a href="login.html">Login</a>
     </div>
   </div>
 
-<div class="link">
-</div>
-
-<a href="forgot-password.html">Forgot Password?</a>
   <script>
-    function togglePassword() {
-      const input = document.getElementById('password');
-      const btn = event.target;
-      if (input.type === 'password') {
-        input.type = 'text';
-        btn.textContent = 'Hide';
-      } else {
-        input.type = 'password';
-        btn.textContent = 'Show';
-      }
-    }
-
-    async function loginUser(e) {
+    async function registerUser(e) {
       e.preventDefault();
+
+      const name = document.getElementById('name').value;
       const email = document.getElementById('email').value;
+      const phone = document.getElementById('phone').value;
+      const image_url = document.getElementById('image_url').value;
       const password = document.getElementById('password').value;
+      const agree = document.getElementById('agree').checked;
       const messageEl = document.getElementById('message');
 
+      if (!agree) {
+        messageEl.textContent = '❌ You must agree to the Terms & Conditions';
+        messageEl.className = 'message error';
+        return;
+      }
+
       try {
-        const res = await fetch('/api/auth/login', {
+        const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ name, email, phone, image_url, password })
         });
 
         const data = await res.json();
 
-        if (res.ok && data.userId) {
-          localStorage.setItem('userId', data.userId);
-          messageEl.textContent = '✅ Logged in! Redirecting...';
+        if (res.ok) {
+          messageEl.textContent = '✅ Registration successful! Redirecting...';
           messageEl.className = 'message success';
           setTimeout(() => {
-            window.location.href = '/dashboard.html';
-          }, 2000);
+            window.location.href = '/login.html';
+          }, 3000);
         } else {
-          messageEl.textContent = data.message || '❌ Login failed.';
+          messageEl.textContent = data.message || '❌ Registration failed.';
           messageEl.className = 'message error';
         }
       } catch (err) {
-        console.error('Login error:', err);
-        messageEl.textContent = '❌ Something went wrong.';
+        console.error('Registration error:', err);
+        messageEl.textContent = '❌ Server error.';
         messageEl.className = 'message error';
       }
     }

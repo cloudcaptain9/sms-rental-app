@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/user'); // ✅ Use capital "U"
 
+// Protect all admin routes with a password
+router.use((req, res, next) => {
+  const adminPassword = req.headers['x-admin-password'];
+  if (adminPassword !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ message: 'Unauthorized: Invalid admin password' });
+  }
+  next();
+});
+
 // POST /api/admin/topup
 router.post('/topup', async (req, res) => {
   const { userId, amount } = req.body;

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pay with Crypto</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+  <div class="bg-white p-6 rounded-lg shadow max-w-md w-full">
+    <h1 class="text-2xl font-bold mb-4">Crypto Payment</h1>
+    <label for="network" class="block mb-2">Choose Network:</label>
+    <select id="network" class="w-full mb-4 border p-2 rounded">
+      <option value="eth">Ethereum (ERC-20)</option>
+      <option value="bsc">Binance Smart Chain (BEP-20)</option>
+    </select>
+    <div id="wallet-address" class="mb-4 text-sm text-gray-700"></div>
+
+    <label for="tx" class="block mb-2">Enter Transaction Hash:</label>
+    <input type="text" id="tx" class="w-full mb-4 border p-2 rounded" placeholder="0x..." />
+
+    <button onclick="submitTx()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+      I've Paid
+    </button>
+
+    <div id="response" class="mt-4 text-sm"></div>
+  </div>
+
+  <script>
+    const userId = localStorage.getItem('userId'); // Set this during login
+    const addressDiv = document.getElementById('wallet-address');
+
+    document.getElementById('network').addEventListener('change', async (e) => {
+      const network = e.target.value;
+      const res = await fetch(`/api/crypto/get-address?network=${network}`);
+      const data = await res.json();
+      addressDiv.innerHTML = `<strong>Send to:</strong> ${data.address}`;
+    });
+
+    document.getElementById('network').dispatchEvent(new Event('change'));
+
+    async function submitTx() {
+      const txHash = document.getElementById('tx').value;
+      const network = document.getElementById('network').value;
+      const res = await fetch('/api/crypto/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txHash, userId, network })
+      });
+      const data = await res.json();
+      document.getElementById('response').innerText = data.message || data.error;
+    }
+  </script>
+</body>
+</html>
+

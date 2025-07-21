@@ -1,77 +1,192 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard</title>
-</head>
-<body>
-  <h2>Welcome, <span id="userName"></span></h2>
-  <p>Email: <span id="userEmail"></span></p>
-  <p>Phone: <span id="userPhone"></span></p>
-  <p>Balance: <strong id="userBalance"></strong> credits</p>
-  <hr>
+  <title>SMS Rental Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fc;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
 
-  <h2>SMS Dashboard</h2>
+    header {
+      background-color: #343a40;
+      color: #fff;
+      padding: 15px 20px;
+      text-align: center;
+    }
 
-  <select id="platform">
-    <option value="Facebook">Facebook</option>
-    <option value="Telegram">Telegram</option>
-    <option value="WhatsApp">WhatsApp</option>
-  </select>
-  <button onclick="rentNumber()">Rent Number</button>
+    header h2 {
+      margin: 0;
+    }
 
-  <h3>Active Rentals</h3>
-  <div id="rentals"></div>
+    .container {
+      max-width: 900px;
+      margin: 30px auto;
+      background: #fff;
+      padding: 25px 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
 
-  <script>
-    const userId = localStorage.getItem('userId');
-    if (!userId) window.location = 'login.html';
+    select, button {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+    }
 
-    async function fetchUserInfo() {
-      try {
-        const res = await fetch(`/api/auth/user/${userId}`);
-        const user = await res.json();
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
 
-        document.getElementById('userName').textContent = user.name;
-        document.getElementById('userEmail').textContent = user.email;
-        document.getElementById('userPhone').textContent = user.phone;
-        document.getElementById('userBalance').textContent = user.balance;
-      } catch (err) {
-        console.error('Error fetching user info', err);
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .label {
+      display: block;
+      margin-top: 10px;
+      font-weight: 600;
+    }
+
+    #rent-status {
+      margin-top: 15px;
+      background: #e9ecef;
+      padding: 10px;
+      border-left: 4px solid #007bff;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .crypto, .logout {
+      margin-top: 20px;
+    }
+
+    .crypto button {
+      background-color: #28a745;
+    }
+
+    .crypto button:hover {
+      background-color: #218838;
+    }
+
+    .price-label {
+      font-weight: bold;
+      margin: 10px 0;
+      display: inline-block;
+      color: #007bff;
+    }
+
+    .rental {
+      background-color: #f1f3f5;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.05);
+    }
+
+    .cancel-btn {
+      margin-top: 10px;
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .cancel-btn:hover {
+      background-color: #c82333;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        margin: 10px;
+        padding: 15px;
       }
     }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>Welcome, <span id="email">Loading...</span></h2>
+  </header>
+  <div class="container">
+    <p><strong>Phone:</strong> <span id="phone">Loading...</span></p>
+    <p><strong>Balance:</strong> <span id="balance">0</span> credits</p>
 
-    async function rentNumber() {
-      const platform = document.getElementById('platform').value;
-      const res = await fetch('/api/rent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, platform })
-      });
+    <h3>📱 Rent a Number</h3>
 
+    <label class="label">Service:</label>
+    <select id="service" onchange="updateServicePrice()"></select>
+
+    <label class="label">Country:</label>
+    <select id="country" onchange="updateServicePrice()"></select>
+
+    <div class="price-label">Price: <span id="service-price">0</span> credits</div><br>
+
+    <button onclick="rentNumber()">Rent Number</button>
+
+    <div id="current-rental">
+      <p id="rent-status">Not renting yet</p>
+    </div>
+
+    <div class="crypto">
+      <a href="/crypto-payment.html"><button>💰 Recharge with Crypto</button></a>
+    </div>
+
+    <h3>📦 Active Rentals</h3>
+    <div id="rentals">Loading rentals...</div>
+
+    <h3>📜 Rental History</h3>
+    <div id="history">Loading history...</div>
+
+    <div class="logout">
+      <button onclick="logout()">🚪 Logout</button>
+    </div>
+  </div>
+
+<script>
+  async function fetchServicesAndCountries() {
+    try {
+      console.log("Fetching services and countries...");
+      const res = await fetch('/api/verification/services');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      alert(data.message || 'Rented!');
-      await fetchUserInfo(); // refresh balance
-      loadRentals();
+      console.log("Fetched data:", data);
+
+      const serviceSelect = document.getElementById('service');
+      const countrySelect = document.getElementById('country');
+
+      // Populate the services dropdown
+      serviceSelect.innerHTML = data.services.map(s => {
+        return `<option value="${s.serviceName}">${s.serviceName}</option>`;
+      }).join('');
+
+      // Populate the countries dropdown
+      countrySelect.innerHTML = data.countries.map(c => {
+        return `<option value="${c.code}">${c.name}</option>`;
+      }).join('');
+
+      updateServicePrice();
+    } catch (err) {
+      console.error("❌ Error loading services/countries:", err);
+      alert("Could not load services/countries.");
     }
+  }
 
-    async function loadRentals() {
-      const res = await fetch('/api/rent/active/' + userId);
-      const rentals = await res.json();
-
-      document.getElementById('rentals').innerHTML = rentals.map(r => `
-        <div>
-          <b>${r.platform}</b> - ${r.twilioNumber}<br />
-          Expires: ${new Date(r.expiresAt).toLocaleTimeString()}<br />
-          ${r.messages.map(m => `<div>📩 ${m.body}</div>`).join('')}
-          <hr/>
-        </div>
-      `).join('');
-    }
-
-    // Load everything on page load
-    fetchUserInfo();
-    loadRentals();
-  </script>
+  // Call the function when the page loads
+  window.onload = fetchServicesAndCountries;
+</script>
 </body>
 </html>
 
